@@ -19,26 +19,17 @@ func runWithReplacements(program []int, noun, verb int) (int, error) {
 	programLength := len(program)
 
 	for i := 0; i < programLength; {
-		if program[i] == 99 {
-			i++
-			continue
-		}
-
-		address := program[i+3]
-
 		switch(program[i]) {
 		case 1:
-			program[address] = program[program[i+1]] + program[program[i+2]]
+			program[program[i+3]] = program[program[i+1]] + program[program[i+2]]
 			i += 4
 		case 2:
-			program[address] = program[program[i+1]] * program[program[i+2]]
+			program[program[i+3]] = program[program[i+1]] * program[program[i+2]]
 			i += 4
+		case 99:
+			return program[0], nil
 		default:
 			return program[0], errors.New("invalid opcode")
-		}
-		if program[0] == 19_690_720 {
-			fmt.Printf("19690720 found with noun %d verb %d\n", noun, verb)
-			fmt.Printf("Result is %d\n", (100*noun) + verb)
 		}
 	}
 
@@ -75,13 +66,12 @@ func main() {
 			program := make([]int, len(inputs))
 			copy(program, inputs)
 			result, err := runWithReplacements(program, noun, verb)
-			// log.Println(result)
 			if err != nil {
 				log.Println(err)
 			}
 			if result == 19_690_720 {
-				fmt.Printf("19690720 found with noun %d verb %d", noun, verb)
-				fmt.Printf("Result is %d", (100*noun) + verb)
+				fmt.Printf("19690720 found with noun %d verb %d\n", noun, verb)
+				fmt.Printf("Result is %d\n", (100*noun) + verb)
 				return
 			}
 		}
