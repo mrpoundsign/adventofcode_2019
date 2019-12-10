@@ -1,13 +1,13 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"log"
 	"encoding/csv"
-	"io"
-	"strconv"
 	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"strconv"
 )
 
 type point struct {
@@ -23,32 +23,43 @@ func Abs(x int) int {
 	return x
 }
 
-func pointsFromInstruction(start point, instruction string) ([]point, error) {
-	if len(instruction) < 2 {
-		return []point{}, errors.New("invalid instruction")
-	}
+func pointsFromInstruction(instructions []string) (map[point]int, error) {
+	out := map[point]int{}
+	curStep := 0
+	p := point{}
 
-	code := instruction[0]
-	count, err := strconv.Atoi(instruction[1:])
-	if err != nil {
-		return []point{}, errors.New("could not convert instruction")
-	}
+	for _, ins := range instructions {
+		if len(ins) < 2 {
+			return out, errors.New("invalid instruction")
+		}
 
-	out := make([]point, count)
+		code := ins[0]
+		count, err := strconv.Atoi(ins[1:])
+		if err != nil {
+			return out, errors.New("could not convert instruction")
+		}
 
-	for i := 1; i <= count; i++ {
-		switch code {
-		case 'U':
-			out[i - 1] = point{X: start.X, Y: start.Y + i}
-		case 'D':
-			out[i- 1] = point{X: start.X, Y: start.Y - i}
-		case 'R':
-			out[i- 1] = point{X: start.X + i, Y: start.Y}
-		case 'L':
-			out[i- 1] = point{X: start.X - i, Y: start.Y}
+		for i := 0; i < count; i++ {
+			curStep ++
+
+			switch code {
+			case 'U':
+				p = point{X: p.X, Y: p.Y + 1}
+			case 'D':
+				p = point{X: p.X, Y: p.Y - 1}
+			case 'R':
+				p = point{X: p.X + 1, Y: p.Y}
+			case 'L':
+				p = point{X: p.X - 1, Y: p.Y}
+			default:
+				return out, errors.New("invalid instruction")
+			}
+			_, ok := out[p]; if !ok {
+				out[p] = curStep
+			}
 		}
 	}
-	
+
 	return out, nil
 }
 
@@ -60,7 +71,7 @@ func main() {
 	defer csvFile.Close()
 
 	r := csv.NewReader(csvFile)
-	wires := [][]point{}
+	wires := []map[point]int{}
 
 	for {
 		record, err := r.Read()
@@ -72,33 +83,25 @@ func main() {
 			log.Fatalln("could not read line", err)
 		}
 
-		curPos := point{0, 0}
-		points := []point{}
-
-		for _, instruction := range record {
-			p, err := pointsFromInstruction(curPos, instruction)
-			if err != nil {
-				log.Fatalln("Error processing instruction", err)
-			}
-			curPos = p[len(p)-1]
-			log.Println("pos from instruction", instruction, "is", curPos)
-			points = append(points, p...)
+		wire, err := pointsFromInstruction(record)
+		if err != nil {
+			log.Fatalln("error processing record", err)
 		}
-
-		wires = append(wires, points)
+		wires = append(wires, wire)
 	}
 
 	if len(wires) != 2 {
-		log.Fatalf("expected 2 wires, got", len(wires))
+		log.Fatalln("expected 2 wires, got", len(wires))
 	}
 
 	crosses := []point{}
-	for _, w := range wires[0] {
-		for _, w2 := range wires[1] {
-			if w == w2 {
-				crosses = append(crosses, w)
+
+	for w1 := range wires[0] {
+		go func(w1 point) {
+			_, ok := wires[1][w1]; if ok {
+				crosses = append(crosses, w1)
 			}
-		}
+		}(w1)
 	}
 
 	log.Println(crosses)
