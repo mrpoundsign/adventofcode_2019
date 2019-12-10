@@ -4,7 +4,7 @@ import "log"
 
 func main() {
 	count := 0
-	Finder:
+Finder:
 	for i := 158126; i <= 624574; i++ {
 		double := false
 		lDigit := 10
@@ -22,7 +22,7 @@ func main() {
 			number = number / 10
 		}
 		if double {
-			count ++
+			count++
 		}
 		// break
 	}
