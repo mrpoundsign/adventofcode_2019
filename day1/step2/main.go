@@ -11,7 +11,7 @@ import (
 )
 
 func addFuelCost(mass int) int {
-	totalMass := mass;
+	totalMass := 0;
 
 	for {
 		addedFuelMass := int(math.Trunc(float64(mass) / 3)) - 2;
@@ -53,7 +53,7 @@ func main() {
 			log.Fatalln("could not convert input to integer", record[0])
 		}
 
-		requiredFuel += addFuelCost(int(math.Trunc(float64(mass) / 3)) - 2)
+		requiredFuel += addFuelCost(mass)
 	}
 
 	fmt.Printf("Required fuel is %d\n", requiredFuel)
