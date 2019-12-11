@@ -2,6 +2,16 @@ package intcode
 
 import "fmt"
 
+// import "log"
+
+// import "log"
+
+type ioReadWriter interface {
+	ReadInput() (int, error)
+	WriteOutput(int) // error if we should halt
+	Log(...interface{})
+}
+
 type mode int
 
 const (
@@ -16,8 +26,10 @@ const (
 	modeEnd = 99
 )
 
-func Run(program []int, input int, expect int) ([]int, int, error) {
+func Run(program []int, rw ioReadWriter) ([]int, error) {
 	programLength := len(program)
+
+	// input := 0
 
 	for i := 0; i < programLength; {
 		code := mode(program[i] % 100)
@@ -48,32 +60,44 @@ func Run(program []int, input int, expect int) ([]int, int, error) {
 		switch code {
 		case modeAdd:
 			program[param3] = program[param1] + program[param2]
+			rw.Log("add", i, param1, param2, param3, program[param3])
 			i += 4
 		case modeMultiply:
 			program[param3] = program[param1] * program[param2]
+			rw.Log("multiply", i, param1, param2, param3, program[param3])
 			i += 4
 		case modeSet:
-			program[param1] = input
+			ip, err := rw.ReadInput()
+			if err != nil {
+				return program, fmt.Errorf("error reading input %w", err)
+			}
+			program[param1] = ip
+			rw.Log("write to", i, param1, ip)
 			i += 2
 		case modeGet:
-			input = program[param1]
-			if expect != -1 && input != expect {
-				return program, input, fmt.Errorf("faled validation with code %d", input)
-			}
+			rw.Log("read from", i, param1, program[param1])
+			// ip, err := rw.ReadInput()
+			// if err != nil {
+			// 	return program, fmt.Errorf("faled validation with code %d", input)
+			// }
+			rw.WriteOutput(program[param1])
 			i += 2
 		case modeJumpIfTrue:
+			rw.Log("jump if true", i, param1, param2)
 			if program[param1] != 0 {
 				i = program[param2]
 				continue
 			}
 			i += 3
 		case modeJumpIfFalse:
+			rw.Log("jump if false", i, param1, param2)
 			if program[param1] == 0 {
 				i = program[param2]
 				continue
 			}
 			i += 3
 		case modeLessThan:
+			rw.Log("test less than", i, param1, param2, param3)
 			if program[param1] < program[param2] {
 				program[param3] = 1
 			} else {
@@ -81,6 +105,7 @@ func Run(program []int, input int, expect int) ([]int, int, error) {
 			}
 			i += 4
 		case modeEquals:
+			rw.Log("test equals", i, param1, param2, param3)
 			if program[param1] == program[param2] {
 				program[param3] = 1
 			} else {
@@ -88,11 +113,12 @@ func Run(program []int, input int, expect int) ([]int, int, error) {
 			}
 			i += 4
 		case modeEnd:
-			return program, input, nil
+			// v, _ := rw.ReadInput()
+			return program, nil
 		default:
-			return program, program[0], fmt.Errorf("invalid opcode %d at %d", code, i)
+			return program, fmt.Errorf("invalid opcode %d at %d", code, i)
 		}
 	}
 
-	return program, input, nil
+	return program, nil
 }
