@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os"
-	"log"
 	"encoding/csv"
-	"strconv"
 	"fmt"
-	"errors"
+	"github.com/mrpoundsign/adventofcode_2019/intcode"
+	"log"
+	"os"
+	"strconv"
 )
 
 func runWithReplacements(program []int, noun, verb int) (int, error) {
@@ -14,26 +14,8 @@ func runWithReplacements(program []int, noun, verb int) (int, error) {
 	program[1] = noun
 	program[2] = verb
 
-	// log.Println(program)
-
-	programLength := len(program)
-
-	for i := 0; i < programLength; {
-		switch(program[i]) {
-		case 1:
-			program[program[i+3]] = program[program[i+1]] + program[program[i+2]]
-			i += 4
-		case 2:
-			program[program[i+3]] = program[program[i+1]] * program[program[i+2]]
-			i += 4
-		case 99:
-			return program[0], nil
-		default:
-			return program[0], errors.New("invalid opcode")
-		}
-	}
-
-	return program[0], nil
+	program, _, err := intcode.Run(program, 0, 0)
+	return program[0], err
 }
 
 func main() {
@@ -44,7 +26,7 @@ func main() {
 	defer csvFile.Close()
 
 	r := csv.NewReader(csvFile)
-	
+
 	record, err := r.Read()
 	if err != nil {
 		log.Fatalln("could not read line", err)
@@ -71,10 +53,10 @@ func main() {
 			}
 			if result == 19_690_720 {
 				fmt.Printf("19690720 found with noun %d verb %d\n", noun, verb)
-				fmt.Printf("Result is %d\n", (100*noun) + verb)
+				fmt.Printf("Result is %d\n", (100*noun)+verb)
 				return
 			}
 		}
 	}
-	
+
 }

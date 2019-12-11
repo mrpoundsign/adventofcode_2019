@@ -1,11 +1,12 @@
 package main
 
 import (
-	"os"
-	"log"
 	"encoding/csv"
-	"strconv"
 	"fmt"
+	"github.com/mrpoundsign/adventofcode_2019/intcode"
+	"log"
+	"os"
+	"strconv"
 )
 
 func main() {
@@ -16,7 +17,7 @@ func main() {
 	defer csvFile.Close()
 
 	r := csv.NewReader(csvFile)
-	
+
 	record, err := r.Read()
 	if err != nil {
 		log.Fatalln("could not read line", err)
@@ -37,19 +38,10 @@ func main() {
 	inputs[1] = 12
 	inputs[2] = 2
 
-	inputsLength := len(inputs)
-
-	for i := 0; i < inputsLength; i = i + 4 {
-		if inputsLength < i+3 {
-			log.Fatalln("Program cannot continue. 0 value is now", inputs[0])
-		}
-		switch(inputs[i]) {
-		case 1:
-			inputs[inputs[i+3]] = inputs[inputs[i+1]] + inputs[inputs[i+2]]
-		case 2:
-			inputs[inputs[i+3]] = inputs[inputs[i+1]] * inputs[inputs[i+2]]
-		}
+	program, _, err := intcode.Run(inputs, 0, 0)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
-	fmt.Println(inputs[0])
+	fmt.Println(program[0])
 }
