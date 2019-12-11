@@ -27,30 +27,21 @@ func Run(program []int, input int, expect int) ([]int, int, error) {
 		param2 := i + 2
 		param3 := i + 3
 
-		switch code {
-		case modeAdd:
-			fallthrough
-		case modeMultiply:
-			fallthrough
-		case modeEquals:
-			fallthrough
-		case modeLessThan:
-			if (program[i]/10_000)%10 == 0 {
-				param3 = program[param3]
-			}
-			fallthrough
-		case modeJumpIfFalse:
-			fallthrough
-		case modeJumpIfTrue:
-			if (program[i]/1_000)%10 == 0 {
-				param2 = program[param2]
-			}
-			fallthrough
-		case modeGet:
-			fallthrough
-		case modeSet:
+		if code != modeEnd {
 			if (program[i]/100)%10 == 0 {
 				param1 = program[param1]
+			}
+
+			if code != modeGet && code != modeSet {
+				if (program[i]/1_000)%10 == 0 {
+					param2 = program[param2]
+				}
+
+				if code != modeJumpIfFalse && code != modeJumpIfTrue {
+					if (program[i]/10_000)%10 == 0 {
+						param3 = program[param3]
+					}
+				}
 			}
 		}
 
