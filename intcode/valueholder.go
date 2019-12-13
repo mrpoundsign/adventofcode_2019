@@ -4,14 +4,14 @@ type ValueHolder struct {
 	value int
 }
 
-func (v ValueHolder) ReadInput() (int, error) {
-	return v.value, nil
+func (v ValueHolder) ReadValue() int {
+	return v.value
 }
 
-func (v *ValueHolder) WriteOutput(i int) {
+func (v *ValueHolder) WriteValue(i int) error {
 	v.value = i
+	return nil
 }
 
-func (v ValueHolder) Log(...interface{}) {
-
-}
+func (v ValueHolder) Fail() {}
+func (v ValueHolder) End()  {}

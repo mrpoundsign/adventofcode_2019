@@ -2,14 +2,11 @@ package intcode
 
 import "fmt"
 
-// import "log"
-
-// import "log"
-
 type ioReadWriter interface {
-	ReadInput() (int, error)
-	WriteOutput(int) // error if we should halt
-	Log(...interface{})
+	ReadValue() int
+	WriteValue(int) error // error if we should halt
+	Fail()
+	End()
 }
 
 type mode int
@@ -44,14 +41,29 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 				param1 = program[param1]
 			}
 
+			if param1 > programLength {
+				rw.Fail()
+				return program, fmt.Errorf("attempted to access index out of range at %d (%d)", i, param1)
+			}
+
 			if code != modeGet && code != modeSet {
 				if (program[i]/1_000)%10 == 0 {
 					param2 = program[param2]
 				}
 
+				if param2 > programLength {
+					rw.Fail()
+					return program, fmt.Errorf("attempted to access index out of range at %d (%d %d)", i, param1, param2)
+				}
+
 				if code != modeJumpIfFalse && code != modeJumpIfTrue {
 					if (program[i]/10_000)%10 == 0 {
 						param3 = program[param3]
+					}
+
+					if param3 > programLength {
+						rw.Fail()
+						return program, fmt.Errorf("attempted to access index out of range at %d (%d %d %d)", i, param1, param2, param3)
 					}
 				}
 			}
@@ -60,44 +72,34 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 		switch code {
 		case modeAdd:
 			program[param3] = program[param1] + program[param2]
-			rw.Log("add", i, param1, param2, param3, program[param3])
 			i += 4
 		case modeMultiply:
 			program[param3] = program[param1] * program[param2]
-			rw.Log("multiply", i, param1, param2, param3, program[param3])
 			i += 4
 		case modeSet:
-			ip, err := rw.ReadInput()
-			if err != nil {
-				return program, fmt.Errorf("error reading input %w", err)
-			}
+			ip := rw.ReadValue()
 			program[param1] = ip
-			rw.Log("write to", i, param1, ip)
 			i += 2
 		case modeGet:
-			rw.Log("read from", i, param1, program[param1])
-			// ip, err := rw.ReadInput()
-			// if err != nil {
-			// 	return program, fmt.Errorf("faled validation with code %d", input)
-			// }
-			rw.WriteOutput(program[param1])
+			err := rw.WriteValue(program[param1])
+			if err != nil {
+				rw.Fail()
+				return program, fmt.Errorf("error reading input %w", err)
+			}
 			i += 2
 		case modeJumpIfTrue:
-			rw.Log("jump if true", i, param1, param2)
 			if program[param1] != 0 {
 				i = program[param2]
 				continue
 			}
 			i += 3
 		case modeJumpIfFalse:
-			rw.Log("jump if false", i, param1, param2)
 			if program[param1] == 0 {
 				i = program[param2]
 				continue
 			}
 			i += 3
 		case modeLessThan:
-			rw.Log("test less than", i, param1, param2, param3)
 			if program[param1] < program[param2] {
 				program[param3] = 1
 			} else {
@@ -105,7 +107,6 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 			}
 			i += 4
 		case modeEquals:
-			rw.Log("test equals", i, param1, param2, param3)
 			if program[param1] == program[param2] {
 				program[param3] = 1
 			} else {
@@ -113,9 +114,10 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 			}
 			i += 4
 		case modeEnd:
-			// v, _ := rw.ReadInput()
+			rw.End()
 			return program, nil
 		default:
+			rw.End()
 			return program, fmt.Errorf("invalid opcode %d at %d", code, i)
 		}
 	}

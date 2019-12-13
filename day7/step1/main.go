@@ -10,52 +10,6 @@ import (
 	"sync"
 )
 
-type amplifier struct {
-	phase     int
-	in        chan int
-	out       chan int
-	value     int
-	sentCount int
-}
-
-func (a amplifier) ReadInput() (int, error) {
-	value, ok := <-a.in
-	if !ok {
-		return a.value, nil
-	}
-	a.value = value
-	a.Log("io read", a.value)
-	return a.value, nil
-}
-
-func (a *amplifier) WriteOutput(i int) {
-	a.value = i
-	a.Log("io write", a.value)
-	if a.sentCount == 2 {
-		close(a.out)
-		a.sentCount++
-		return
-	}
-	a.Log("io send", a.value)
-	a.sentCount++
-	a.out <- i
-}
-
-func (a amplifier) Log(v ...interface{}) {
-	log.Println("phase", a.phase, v)
-}
-
-func newAmplifierPhase(phase int) *amplifier {
-	ch := make(chan int, 2)
-
-	return newAmplifierWithChan(phase, ch, make(chan int, 2))
-}
-
-func newAmplifierWithChan(phase int, in, out chan int) *amplifier {
-	in <- phase
-	return &amplifier{phase: phase, in: in, out: out}
-}
-
 func main() {
 	filename := "input.csv"
 	if len(os.Args) == 2 {
@@ -68,6 +22,26 @@ func main() {
 	defer csvFile.Close()
 
 	r := csv.NewReader(csvFile)
+
+	sequences := make([][]int, 5)
+
+	for i := 0; i < 5; i++ {
+		sequences[i] = make([]int, 2)
+		record, err := r.Read()
+		if err != nil {
+			log.Fatalln("could not read line", err)
+		}
+		for j := range record {
+			if j > 1 {
+				break
+			}
+			input, err := strconv.Atoi(record[j])
+			if err != nil {
+				log.Fatalf("input is not valid")
+			}
+			sequences[i][j] = input
+		}
+	}
 
 	record, err := r.Read()
 	if err != nil {
@@ -85,62 +59,67 @@ func main() {
 		program[i] = input
 	}
 
-	// sequence := []int{4, 3, 2, 1, 0}
-	// sequence := []int{4, 3}
-	sequence := []int{0, 1, 2, 3, 4}
-
 	var wg sync.WaitGroup
+	var mux sync.Mutex
 
-	// first := make(chan int)
-	last := make(chan int)
+	big := 0
+	bigSequence := 0
 
-	var prevOut chan int
-	// var prevIn chan int
-	// var last chan int
+	for a := sequences[0][0]; a <= sequences[0][1]; a++ {
+		for b := sequences[1][0]; b <= sequences[1][1]; b++ {
+			for c := sequences[2][0]; c <= sequences[2][1]; c++ {
+				for d := sequences[3][0]; d <= sequences[3][1]; d++ {
+					for e := sequences[4][0]; e <= sequences[4][1]; e++ {
+						junk := make(map[int]bool)
+						junk[a] = true
+						junk[b] = true
+						junk[c] = true
+						junk[d] = true
+						junk[e] = true
 
-	for i := 0; i < len(sequence); i++ {
-		var amp *amplifier
+						if len(junk) < 5 {
+							continue
+						}
 
-		code := make([]int, len(program))
-		copy(code, program)
+						wg.Add(1)
 
-		switch i {
-		case 0:
-			// log.Println("Found first")
-			amp = newAmplifierPhase(sequence[i])
-			go func() {
-				amp.in <- 0
-				close(amp.in)
-			}()
-		case len(sequence) - 1:
-			// log.Println("Found last at", i, sequence[i])
-			amp = newAmplifierWithChan(sequence[i], prevOut, last)
-		default:
-			// log.Println("amp", i)
-			amp = newAmplifierWithChan(sequence[i], prevOut, make(chan int, 2))
-		}
+						go func(sequence []int) {
+							var amp intcode.Amplifier
 
-		// prevIn = amp.in
-		prevOut = amp.out
+							for i := 0; i < len(sequence); i++ {
 
-		wg.Add(1)
-		go func(code []int, amp *amplifier) {
-			log.Println("starting amp", amp.phase)
-			_, err := intcode.Run(code, amp)
-			if err != nil {
-				log.Fatal(err)
+								code := make([]int, len(program))
+								copy(code, program)
+
+								switch i {
+								case 0:
+									amp = intcode.NewAmplifier(sequence[i], 0)
+								default:
+									amp = intcode.NewAmplifier(sequence[i], amp.Value())
+								}
+
+								_, err := intcode.Run(code, &amp)
+								if err != nil {
+									log.Println(err)
+								}
+
+								mux.Lock()
+								if amp.Value() > big {
+									big = amp.Value()
+									value := sequence[0]*10_000 + sequence[1]*1_000 + sequence[2]*100 + sequence[3]*10 + sequence[4]
+									bigSequence = value
+								}
+								mux.Unlock()
+							}
+							wg.Done()
+						}([]int{a, b, c, d, e})
+					}
+				}
 			}
-			log.Println("end amp", amp.phase)
-			wg.Done()
-		}(code, amp)
+		}
 	}
-
-	wg.Add(1)
-	go func() {
-		log.Println("result", <-last)
-		wg.Done()
-	}()
-
 	wg.Wait()
+
+	log.Println("Max thrust", big, "sequence", bigSequence)
 
 }

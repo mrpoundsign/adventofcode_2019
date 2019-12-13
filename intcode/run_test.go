@@ -82,9 +82,9 @@ func TestRun(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Run() got = %v, want %v", got, tt.want)
 			}
-			gotReadValue, _ := tt.args.rw.ReadInput()
+			gotReadValue := tt.args.rw.ReadValue()
 			if gotReadValue != tt.wantValue {
-				t.Errorf("Run() rw.ReadInput() = %v, want %v", gotReadValue, tt.wantValue)
+				t.Errorf("Run() rw.ReadValue() = %v, want %v", gotReadValue, tt.wantValue)
 			}
 		})
 	}
