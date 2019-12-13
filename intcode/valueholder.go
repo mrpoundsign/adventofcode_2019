@@ -14,4 +14,4 @@ func (v *ValueHolder) WriteValue(i int) error {
 }
 
 func (v ValueHolder) Fail() {}
-func (v ValueHolder) End()  {}
+func (v ValueHolder) Exit() {}

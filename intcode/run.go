@@ -6,7 +6,7 @@ type ioReadWriter interface {
 	ReadValue() int
 	WriteValue(int) error // error if we should halt
 	Fail()
-	End()
+	Exit()
 }
 
 type mode int
@@ -114,10 +114,10 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 			}
 			i += 4
 		case modeEnd:
-			rw.End()
+			rw.Exit()
 			return program, nil
 		default:
-			rw.End()
+			rw.Fail()
 			return program, fmt.Errorf("invalid opcode %d at %d", code, i)
 		}
 	}
