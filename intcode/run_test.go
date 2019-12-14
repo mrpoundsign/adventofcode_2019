@@ -11,7 +11,7 @@ func TestRun(t *testing.T) {
 		999, 1105, 1, 46, 1101, 1000, 1, 20, 4, 20, 1105, 1, 46, 98, 99}
 	type args struct {
 		program []int
-		rw      ioReadWriter
+		value   int
 	}
 	tests := []struct {
 		name      string
@@ -24,7 +24,7 @@ func TestRun(t *testing.T) {
 			name: "d5s1t1 10 returns 10",
 			args: args{
 				program: []int{3, 0, 4, 0, 99},
-				rw:      &ValueHolder{value: 10},
+				value:   10,
 			},
 			want:      []int{10, 0, 4, 0, 99},
 			wantValue: 10,
@@ -34,7 +34,7 @@ func TestRun(t *testing.T) {
 			name: "d5s2t1 test 0",
 			args: args{
 				program: []int{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9},
-				rw:      &ValueHolder{value: 10},
+				value:   10,
 			},
 			want:      []int{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, 10, 1, 1, 9},
 			wantValue: 1,
@@ -44,7 +44,7 @@ func TestRun(t *testing.T) {
 			name: "d5s2t1 test 1",
 			args: args{
 				program: []int{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9},
-				rw:      &ValueHolder{value: 0},
+				value:   0,
 			},
 			want:      []int{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, 0, 0, 1, 9},
 			wantValue: 0,
@@ -54,7 +54,7 @@ func TestRun(t *testing.T) {
 			name: "d5s2t2 less than 8",
 			args: args{
 				program: progLessThan8,
-				rw:      &ValueHolder{value: 0},
+				value:   0,
 			},
 			want:      progLessThan8,
 			wantValue: 999,
@@ -74,7 +74,7 @@ func TestRun(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Run(tt.args.program, tt.args.rw)
+			got, gotValue, err := Run(tt.args.program, tt.args.value)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -82,9 +82,8 @@ func TestRun(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Run() got = %v, want %v", got, tt.want)
 			}
-			gotReadValue := tt.args.rw.ReadValue()
-			if gotReadValue != tt.wantValue {
-				t.Errorf("Run() rw.ReadValue() = %v, want %v", gotReadValue, tt.wantValue)
+			if gotValue != tt.wantValue {
+				t.Errorf("Run() rw.ReadValue() = %v, want %v", gotValue, tt.wantValue)
 			}
 		})
 	}

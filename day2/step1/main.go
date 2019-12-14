@@ -38,7 +38,7 @@ func main() {
 	inputs[1] = 12
 	inputs[2] = 2
 
-	program, _, err := intcode.Run(inputs, 0, 0)
+	program, _, err := intcode.Run(inputs, 0)
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -1,5 +1,7 @@
 package intcode
 
+import "errors"
+
 type Amplifier struct {
 	initialInput []int
 	inputCount   int
@@ -13,20 +15,20 @@ func (a Amplifier) Phase() int {
 	return a.initialInput[0]
 }
 
-func (a *Amplifier) ReadValue() int {
+func (a *Amplifier) ReadValue() (int, error) {
 	if a.inputCount < len(a.initialInput) {
 		defer func() { a.inputCount++ }()
 		a.value = a.initialInput[a.inputCount]
 	} else {
 		value, ok := <-a.recv
 		if !ok {
-			return a.value
+			return a.value, errors.New("upstream previous closed")
 		}
 		a.value = value
 
 	}
 
-	return a.value
+	return a.value, nil
 }
 
 func (a *Amplifier) WriteValue(i int) error {
@@ -44,7 +46,9 @@ func (a Amplifier) Complete() bool {
 }
 
 func (a *Amplifier) Fail() {
-	a.Exit()
+	if !a.complete {
+		a.Exit()
+	}
 }
 
 func (a *Amplifier) Exit() {
@@ -57,9 +61,9 @@ func (a *Amplifier) SetPrevAmp(input Amplifier) {
 }
 
 func NewAmplifier(phaseInput []int) *Amplifier {
-	return &Amplifier{initialInput: phaseInput, send: make(chan int)}
+	return &Amplifier{initialInput: phaseInput, send: make(chan int, 1)}
 }
 
 func NewChainAmplifier(phase int, input *Amplifier) *Amplifier {
-	return &Amplifier{initialInput: []int{phase}, send: make(chan int), recv: input.send}
+	return &Amplifier{initialInput: []int{phase}, send: make(chan int, 1), recv: input.send}
 }

@@ -83,34 +83,33 @@ func main() {
 
 						wg.Add(1)
 
-						go func(sequence []int) {
-							var amp intcode.Amplifier
+						go func(s []int) {
+							amps := make([]*intcode.Amplifier, 5)
 
-							for i := 0; i < len(sequence); i++ {
+							amps[0] = intcode.NewAmplifier([]int{s[0], 0})
+							amps[1] = intcode.NewChainAmplifier(s[1], amps[0])
+							amps[2] = intcode.NewChainAmplifier(s[2], amps[1])
+							amps[3] = intcode.NewChainAmplifier(s[3], amps[2])
+							amps[4] = intcode.NewChainAmplifier(s[4], amps[3])
 
-								code := make([]int, len(program))
-								copy(code, program)
-
-								switch i {
-								case 0:
-									amp = intcode.NewAmplifier(sequence[i], 0)
-								default:
-									amp = intcode.NewAmplifier(sequence[i], amp.Value())
-								}
-
-								_, err := intcode.Run(code, &amp)
-								if err != nil {
-									log.Println(err)
-								}
-
-								mux.Lock()
-								if amp.Value() > big {
-									big = amp.Value()
-									value := sequence[0]*10_000 + sequence[1]*1_000 + sequence[2]*100 + sequence[3]*10 + sequence[4]
-									bigSequence = value
-								}
-								mux.Unlock()
+							for i := 0; i < 5; i++ {
+								go func(amp *intcode.Amplifier) {
+									code := make([]int, len(program))
+									copy(code, program)
+									p, err := intcode.RunWithAmp(code, amp)
+									if err != nil {
+										log.Println(amp.Phase(), "error", err, p)
+									}
+								}(amps[i])
 							}
+
+							mux.Lock()
+							if amps[4].Value() > big {
+								big = amps[4].Value()
+								value := s[0]*10_000 + s[1]*1_000 + s[2]*100 + s[3]*10 + s[4]
+								bigSequence = value
+							}
+							mux.Unlock()
 							wg.Done()
 						}([]int{a, b, c, d, e})
 					}

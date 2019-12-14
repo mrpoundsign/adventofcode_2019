@@ -14,7 +14,7 @@ func runWithReplacements(program []int, noun, verb int) (int, error) {
 	program[1] = noun
 	program[2] = verb
 
-	program, _, err := intcode.Run(program, 0, 0)
+	program, _, err := intcode.Run(program, 0)
 	return program[0], err
 }
 

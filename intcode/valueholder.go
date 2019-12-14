@@ -4,8 +4,8 @@ type ValueHolder struct {
 	value int
 }
 
-func (v ValueHolder) ReadValue() int {
-	return v.value
+func (v ValueHolder) ReadValue() (int, error) {
+	return v.value, nil
 }
 
 func (v *ValueHolder) WriteValue(i int) error {

@@ -34,9 +34,9 @@ func main() {
 		program[i] = input
 	}
 
-	_, result, err := intcode.Run(program, 5, 0)
+	_, result, err := intcode.Run(program, 5)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	log.Println(result)

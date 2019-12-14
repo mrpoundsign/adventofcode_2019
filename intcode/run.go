@@ -3,7 +3,7 @@ package intcode
 import "fmt"
 
 type ioReadWriter interface {
-	ReadValue() int
+	ReadValue() (int, error)
 	WriteValue(int) error // error if we should halt
 	Fail()
 	Exit()
@@ -23,10 +23,15 @@ const (
 	modeEnd = 99
 )
 
-func Run(program []int, rw ioReadWriter) ([]int, error) {
-	programLength := len(program)
+func Run(program []int, input int) ([]int, int, error) {
+	vh := &ValueHolder{value: input}
+	prog, err := RunWithAmp(program, vh)
+	return prog, vh.value, err
+}
 
-	// input := 0
+func RunWithAmp(program []int, rw ioReadWriter) ([]int, error) {
+	defer rw.Fail()
+	programLength := len(program)
 
 	for i := 0; i < programLength; {
 		code := mode(program[i] % 100)
@@ -42,7 +47,6 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 			}
 
 			if param1 > programLength {
-				rw.Fail()
 				return program, fmt.Errorf("attempted to access index out of range at %d (%d)", i, param1)
 			}
 
@@ -52,7 +56,6 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 				}
 
 				if param2 > programLength {
-					rw.Fail()
 					return program, fmt.Errorf("attempted to access index out of range at %d (%d %d)", i, param1, param2)
 				}
 
@@ -62,7 +65,6 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 					}
 
 					if param3 > programLength {
-						rw.Fail()
 						return program, fmt.Errorf("attempted to access index out of range at %d (%d %d %d)", i, param1, param2, param3)
 					}
 				}
@@ -77,13 +79,15 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 			program[param3] = program[param1] * program[param2]
 			i += 4
 		case modeSet:
-			ip := rw.ReadValue()
+			ip, err := rw.ReadValue()
+			if err != nil {
+				return program, fmt.Errorf("read failure %w", err)
+			}
 			program[param1] = ip
 			i += 2
 		case modeGet:
 			err := rw.WriteValue(program[param1])
 			if err != nil {
-				rw.Fail()
 				return program, fmt.Errorf("error reading input %w", err)
 			}
 			i += 2
@@ -117,7 +121,6 @@ func Run(program []int, rw ioReadWriter) ([]int, error) {
 			rw.Exit()
 			return program, nil
 		default:
-			rw.Fail()
 			return program, fmt.Errorf("invalid opcode %d at %d", code, i)
 		}
 	}
