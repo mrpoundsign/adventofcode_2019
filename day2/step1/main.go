@@ -23,11 +23,11 @@ func main() {
 		log.Fatalln("could not read line", err)
 	}
 
-	inputs := make([]int, len(record))
+	inputs := make([]int64, len(record))
 	fmt.Println("Inputs length is", len(inputs))
 
 	for i, value := range record {
-		input, err := strconv.Atoi(value)
+		input, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			log.Fatalf("input is not valid")
 		}

@@ -1,12 +1,14 @@
 package intcode
 
-import "fmt"
-
-import "errors"
+import (
+	"errors"
+	"fmt"
+	// "log"
+)
 
 type ioReadWriter interface {
-	ReadValue() (int, error)
-	WriteValue(int) error // error if we should halt
+	ReadValue() (int64, error)
+	WriteValue(int64) error // error if we should halt
 	Fail()
 	Exit()
 }
@@ -35,8 +37,8 @@ const (
 )
 
 type runner struct {
-	prog    []int
-	extMem  map[int]int
+	prog    []int64
+	extMem  map[int64]int64
 	rw      ioReadWriter
 	rbase   int
 	pointer int
@@ -47,27 +49,27 @@ func (r *runner) getOffset(addr int, m mode) int {
 	case modeImmiedate:
 		return addr
 	case modeRelative:
-		return addr + r.rbase
+		return r.rbase + int(r.get(addr))
 	}
 
-	return r.get(addr)
+	return int(r.get(addr))
 }
 
-func (r *runner) set(addr, value int) {
+func (r *runner) set(addr int, value int64) {
 	if addr < len(r.prog) {
 		r.prog[addr] = value
 		return
 	}
 
-	r.extMem[addr-len(r.prog)] = value
+	r.extMem[int64(addr-len(r.prog))] = value
 }
 
-func (r *runner) get(addr int) int {
+func (r *runner) get(addr int) int64 {
 	if addr < len(r.prog) {
 		return r.prog[addr]
 	}
 
-	value, ok := r.extMem[addr-len(r.prog)]
+	value, ok := r.extMem[int64(addr-len(r.prog))]
 	if !ok {
 		return 0
 	}
@@ -82,8 +84,8 @@ func (r *runner) getCmdCode(addr int) (cmd, error) {
 	return 0, errors.New("attempted to execute in extended memory")
 }
 
-func (r *runner) setRbase(addr int) {
-	r.rbase = addr
+func (r *runner) setRbase(offset int) {
+	r.rbase += offset
 }
 
 func (r *runner) run() error {
@@ -120,6 +122,8 @@ func (r *runner) run() error {
 			}
 		}
 
+		// log.Println(r.pointer, at, code, param1, param2, param3)
+
 		switch code {
 		case cmdAdd:
 			r.set(param3, r.get(param1)+r.get(param2))
@@ -138,12 +142,12 @@ func (r *runner) run() error {
 			}
 		case cmdJumpIfTrue:
 			if r.get(param1) != 0 {
-				r.pointer = r.get(param2)
+				r.pointer = int(r.get(param2))
 				continue
 			}
 		case cmdJumpIfFalse:
 			if r.get(param1) == 0 {
-				r.pointer = r.get(param2)
+				r.pointer = int(r.get(param2))
 				continue
 			}
 		case cmdLessThan:
@@ -159,7 +163,7 @@ func (r *runner) run() error {
 				r.set(param3, 0)
 			}
 		case cmdSetRelativeBase:
-			r.setRbase(param1)
+			r.setRbase(int(r.get(param1)))
 		case cmdEnd:
 			r.rw.Exit()
 			return nil
@@ -173,14 +177,14 @@ func (r *runner) run() error {
 	return nil
 }
 
-func Run(program []int, input int) ([]int, int, error) {
+func Run(program []int64, input int64) ([]int64, int64, error) {
 	vh := &ValueHolder{value: input}
-	prog, err := RunWithAmp(program, vh)
+	prog, err := RunWithIO(program, vh)
 	return prog, vh.value, err
 }
 
-func RunWithAmp(program []int, rw ioReadWriter) ([]int, error) {
-	r := runner{prog: program, rw: rw, extMem: make(map[int]int)}
+func RunWithIO(program []int64, rw ioReadWriter) ([]int64, error) {
+	r := runner{prog: program, rw: rw, extMem: make(map[int64]int64)}
 	err := r.run()
 	return r.prog, err
 }

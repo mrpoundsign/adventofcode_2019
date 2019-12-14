@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-func runWithReplacements(program []int, noun, verb int) (int, error) {
+func runWithReplacements(program []int64, noun, verb int64) (int64, error) {
 	// Restore gravity
 	program[1] = noun
 	program[2] = verb
@@ -32,20 +32,20 @@ func main() {
 		log.Fatalln("could not read line", err)
 	}
 
-	inputs := make([]int, len(record))
+	inputs := make([]int64, len(record))
 	fmt.Println("Inputs length is", len(inputs))
 
 	for i, value := range record {
-		input, err := strconv.Atoi(value)
+		input, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			log.Fatalf("input is not valid")
 		}
 		inputs[i] = input
 	}
 
-	for noun := 0; noun <= 99; noun++ {
-		for verb := 0; verb <= 99; verb++ {
-			program := make([]int, len(inputs))
+	for noun := int64(0); noun <= 99; noun++ {
+		for verb := int64(0); verb <= 99; verb++ {
+			program := make([]int64, len(inputs))
 			copy(program, inputs)
 			result, err := runWithReplacements(program, noun, verb)
 			if err != nil {

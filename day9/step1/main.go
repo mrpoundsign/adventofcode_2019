@@ -10,9 +10,13 @@ import (
 )
 
 func main() {
-	csvFile, err := os.Open("input.csv")
+	filename := "input.csv"
+	if len(os.Args) == 2 {
+		filename = os.Args[1]
+	}
+	csvFile, err := os.Open(filename)
 	if err != nil {
-		log.Fatalln("Could not open CSV file", err)
+		log.Fatal(err)
 	}
 	defer csvFile.Close()
 
@@ -34,11 +38,12 @@ func main() {
 		program[i] = input
 	}
 
-	_, result, err := intcode.Run(program, 1)
+	v := intcode.NewValueHolder(1)
+	_, err = intcode.RunWithIO(program, v)
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Println(result)
+	log.Println(v.Outputs())
 
 }

@@ -23,10 +23,10 @@ func main() {
 
 	r := csv.NewReader(csvFile)
 
-	sequences := make([][]int, 5)
+	sequences := make([][]int64, 5)
 
 	for i := 0; i < 5; i++ {
-		sequences[i] = make([]int, 2)
+		sequences[i] = make([]int64, 2)
 		record, err := r.Read()
 		if err != nil {
 			log.Fatalln("could not read line", err)
@@ -35,7 +35,7 @@ func main() {
 			if j > 1 {
 				break
 			}
-			input, err := strconv.Atoi(record[j])
+			input, err := strconv.ParseInt(record[j], 10, 64)
 			if err != nil {
 				log.Fatalf("input is not valid")
 			}
@@ -48,11 +48,11 @@ func main() {
 		log.Fatalln("could not read line", err)
 	}
 
-	program := make([]int, len(record))
+	program := make([]int64, len(record))
 	fmt.Println("Program length is", len(program))
 
 	for i, value := range record {
-		input, err := strconv.Atoi(value)
+		input, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			log.Fatalf("input is not valid")
 		}
@@ -62,8 +62,8 @@ func main() {
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 
-	big := 0
-	bigSequence := 0
+	big := int64(0)
+	bigSequence := int64(0)
 
 	for a := sequences[0][0]; a <= sequences[0][1]; a++ {
 		for b := sequences[1][0]; b <= sequences[1][1]; b++ {
@@ -72,7 +72,7 @@ func main() {
 					for e := sequences[4][0]; e <= sequences[4][1]; e++ {
 
 						// test for uniqueness of values
-						junk := make(map[int]bool)
+						junk := make(map[int64]bool)
 						junk[a] = true
 						junk[b] = true
 						junk[c] = true
@@ -85,12 +85,12 @@ func main() {
 
 						wg.Add(1)
 
-						go func(s []int) {
+						go func(s []int64) {
 							defer wg.Done()
 							amps := make([]*intcode.Amplifier, 5)
 							var wg2 sync.WaitGroup
 
-							amps[0] = intcode.NewAmplifier([]int{s[0], 0})
+							amps[0] = intcode.NewAmplifier([]int64{s[0], 0})
 							amps[1] = intcode.NewChainAmplifier(s[1], amps[0])
 							amps[2] = intcode.NewChainAmplifier(s[2], amps[1])
 							amps[3] = intcode.NewChainAmplifier(s[3], amps[2])
@@ -101,9 +101,9 @@ func main() {
 								wg2.Add(1)
 								go func(amp *intcode.Amplifier) {
 									defer wg2.Done()
-									code := make([]int, len(program))
+									code := make([]int64, len(program))
 									copy(code, program)
-									_, err := intcode.RunWithAmp(code, amp)
+									_, err := intcode.RunWithIO(code, amp)
 									if err != nil {
 										log.Println(amp.Phase(), "error", err)
 									}
@@ -118,10 +118,9 @@ func main() {
 
 							if value > big {
 								big = value
-								seq := s[0]*10_000 + s[1]*1_000 + s[2]*100 + s[3]*10 + s[4]
-								bigSequence = seq
+								bigSequence = s[0]*10_000 + s[1]*1_000 + s[2]*100 + s[3]*10 + s[4]
 							}
-						}([]int{a, b, c, d, e})
+						}([]int64{a, b, c, d, e})
 					}
 				}
 			}
