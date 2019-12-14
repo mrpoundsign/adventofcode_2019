@@ -60,17 +60,16 @@ func TestRun(t *testing.T) {
 			wantValue: 999,
 			wantErr:   false,
 		},
-		// {
-		// 	name: "d5s2t2 greater 8",
-		// 	args: args{
-		// 		program: progLessThan8,
-		// 		input:   9,
-		// 		expect:  1001,
-		// 	},
-		// 	want:    progLessThan8,
-		// 	want1:   1001,
-		// 	wantErr: false,
-		// },
+		{
+			name: "d5s2t2 greater 8",
+			args: args{
+				program: progLessThan8,
+				value:   9,
+			},
+			want:      progLessThan8,
+			wantValue: 1001,
+			wantErr:   false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,6 +83,64 @@ func TestRun(t *testing.T) {
 			}
 			if gotValue != tt.wantValue {
 				t.Errorf("Run() rw.ReadValue() = %v, want %v", gotValue, tt.wantValue)
+			}
+		})
+	}
+}
+
+func Test_runner_getOffset(t *testing.T) {
+	io := &ValueHolder{value: 3}
+	prog := []int{1002, 11, 9, 4}
+
+	type fields struct {
+		prog    []int
+		extMem  map[int]int
+		rw      ioReadWriter
+		rbase   int
+		pointer int
+	}
+
+	f := fields{
+		prog:    prog,
+		rbase:   1,
+		rw:      io,
+		pointer: 0,
+	}
+
+	type args struct {
+		offset int
+		m      mode
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   int
+	}{
+		{
+			name:   "position mode",
+			fields: f,
+			args:   args{offset: 1, m: modePosition},
+			want:   11,
+		},
+		{
+			name:   "immiedate mode",
+			fields: f,
+			args:   args{offset: 2, m: modeImmiedate},
+			want:   2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &runner{
+				prog:   tt.fields.prog,
+				extMem: tt.fields.extMem,
+				rw:     tt.fields.rw,
+				rbase:  tt.fields.rbase,
+				// pointer: tt.fields.pointer,
+			}
+			if got := r.getOffset(tt.args.offset, tt.args.m); got != tt.want {
+				t.Errorf("runner.getOffset() = %v, want %v", got, tt.want)
 			}
 		})
 	}

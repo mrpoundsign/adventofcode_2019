@@ -2,6 +2,8 @@ package intcode
 
 import "fmt"
 
+import "errors"
+
 type ioReadWriter interface {
 	ReadValue() (int, error)
 	WriteValue(int) error // error if we should halt
@@ -20,62 +22,100 @@ const (
 	cmdJumpIfFalse
 	cmdLessThan
 	cmdEquals
+	cmdSetRelativeBase
 	cmdEnd = 99
 )
 
+type mode int
+
+const (
+	modePosition mode = iota
+	modeImmiedate
+	modeRelative
+)
+
 type runner struct {
-	prog   []int
-	extMem map[int]int
-	rw     ioReadWriter
+	prog    []int
+	extMem  map[int]int
+	rw      ioReadWriter
+	rbase   int
+	pointer int
 }
 
-func (r *runner) set(offset, value int) {
-	if offset < len(r.prog) {
-		r.prog[offset] = value
+func (r *runner) getOffset(addr int, m mode) int {
+	switch m {
+	case modeImmiedate:
+		return addr
+	case modeRelative:
+		return addr + r.rbase
+	}
+
+	return r.get(addr)
+}
+
+func (r *runner) set(addr, value int) {
+	if addr < len(r.prog) {
+		r.prog[addr] = value
 		return
 	}
 
-	r.extMem[offset] = value
+	r.extMem[addr-len(r.prog)] = value
 }
 
-func (r *runner) get(offset int) int {
-	if offset < len(r.prog) {
-		return r.prog[offset]
+func (r *runner) get(addr int) int {
+	if addr < len(r.prog) {
+		return r.prog[addr]
 	}
 
-	value, ok := r.extMem[offset]
+	value, ok := r.extMem[addr-len(r.prog)]
 	if !ok {
 		return 0
 	}
 	return value
 }
 
+func (r *runner) getCmdCode(addr int) (cmd, error) {
+	if addr < len(r.prog) {
+		return cmd(r.prog[addr] % 100), nil
+	}
+
+	return 0, errors.New("attempted to execute in extended memory")
+}
+
+func (r *runner) setRbase(addr int) {
+	r.rbase = addr
+}
+
 func (r *runner) run() error {
 	defer r.rw.Fail()
+
 	progLen := len(r.prog)
 
-	for i := 0; i < progLen; {
-		code := cmd(r.get(i) % 100)
+	for r.pointer < progLen {
+		code, err := r.getCmdCode(r.pointer)
+		if err != nil {
+			return fmt.Errorf("run error retreiving code, %w", err)
+		}
 
 		// Default to parameter mode
-		param1 := i + 1
-		param2 := i + 2
-		param3 := i + 3
+		param1 := r.pointer + 1
+		param2 := r.pointer + 2
+		param3 := r.pointer + 3
+
+		pointerAdd := 1
+		at := r.get(r.pointer)
 
 		if code != cmdEnd {
-			if (r.get(i)/100)%10 == 0 {
-				param1 = r.get(param1)
-			}
+			param1 = r.getOffset(r.pointer+1, mode((at/100)%10))
+			pointerAdd++
 
-			if code != cmdGet && code != cmdSet {
-				if (r.get(i)/1_000)%10 == 0 {
-					param2 = r.get(param2)
-				}
+			if code != cmdGet && code != cmdSet && code != cmdSetRelativeBase {
+				param2 = r.getOffset(r.pointer+2, mode((at/1_000)%10))
+				pointerAdd++
 
 				if code != cmdJumpIfFalse && code != cmdJumpIfTrue {
-					if (r.get(i)/10_000)%10 == 0 {
-						param3 = r.get(param3)
-					}
+					param3 = r.getOffset(r.pointer+3, mode((at/10_000)%10))
+					pointerAdd++
 				}
 			}
 		}
@@ -83,55 +123,51 @@ func (r *runner) run() error {
 		switch code {
 		case cmdAdd:
 			r.set(param3, r.get(param1)+r.get(param2))
-			i += 4
 		case cmdMultiply:
 			r.set(param3, r.get(param1)*r.get(param2))
-			i += 4
 		case cmdSet:
 			ip, err := r.rw.ReadValue()
 			if err != nil {
 				return fmt.Errorf("read failure %w", err)
 			}
 			r.set(param1, ip)
-			i += 2
 		case cmdGet:
 			err := r.rw.WriteValue(r.get(param1))
 			if err != nil {
 				return fmt.Errorf("error reading input %w", err)
 			}
-			i += 2
 		case cmdJumpIfTrue:
 			if r.get(param1) != 0 {
-				i = r.get(param2)
+				r.pointer = r.get(param2)
 				continue
 			}
-			i += 3
 		case cmdJumpIfFalse:
 			if r.get(param1) == 0 {
-				i = r.get(param2)
+				r.pointer = r.get(param2)
 				continue
 			}
-			i += 3
 		case cmdLessThan:
 			if r.get(param1) < r.get(param2) {
 				r.set(param3, 1)
 			} else {
 				r.set(param3, 0)
 			}
-			i += 4
 		case cmdEquals:
 			if r.get(param1) == r.get(param2) {
 				r.set(param3, 1)
 			} else {
 				r.set(param3, 0)
 			}
-			i += 4
+		case cmdSetRelativeBase:
+			r.setRbase(param1)
 		case cmdEnd:
 			r.rw.Exit()
 			return nil
 		default:
-			return fmt.Errorf("invalid opcode %d at %d", code, i)
+			return fmt.Errorf("invalid opcode %d at %d", code, r.pointer)
 		}
+
+		r.pointer += pointerAdd
 	}
 
 	return nil
@@ -144,7 +180,7 @@ func Run(program []int, input int) ([]int, int, error) {
 }
 
 func RunWithAmp(program []int, rw ioReadWriter) ([]int, error) {
-	r := runner{prog: program, rw: rw}
+	r := runner{prog: program, rw: rw, extMem: make(map[int]int)}
 	err := r.run()
 	return r.prog, err
 }
