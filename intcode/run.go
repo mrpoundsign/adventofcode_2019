@@ -9,19 +9,133 @@ type ioReadWriter interface {
 	Exit()
 }
 
-type mode int
+type cmd int
 
 const (
-	modeAdd mode = iota + 1
-	modeMultiply
-	modeSet
-	modeGet
-	modeJumpIfTrue
-	modeJumpIfFalse
-	modeLessThan
-	modeEquals
-	modeEnd = 99
+	cmdAdd cmd = iota + 1
+	cmdMultiply
+	cmdSet
+	cmdGet
+	cmdJumpIfTrue
+	cmdJumpIfFalse
+	cmdLessThan
+	cmdEquals
+	cmdEnd = 99
 )
+
+type runner struct {
+	prog   []int
+	extMem map[int]int
+	rw     ioReadWriter
+}
+
+func (r *runner) set(offset, value int) {
+	if offset < len(r.prog) {
+		r.prog[offset] = value
+		return
+	}
+
+	r.extMem[offset] = value
+}
+
+func (r *runner) get(offset int) int {
+	if offset < len(r.prog) {
+		return r.prog[offset]
+	}
+
+	value, ok := r.extMem[offset]
+	if !ok {
+		return 0
+	}
+	return value
+}
+
+func (r *runner) run() error {
+	defer r.rw.Fail()
+	progLen := len(r.prog)
+
+	for i := 0; i < progLen; {
+		code := cmd(r.get(i) % 100)
+
+		// Default to parameter mode
+		param1 := i + 1
+		param2 := i + 2
+		param3 := i + 3
+
+		if code != cmdEnd {
+			if (r.get(i)/100)%10 == 0 {
+				param1 = r.get(param1)
+			}
+
+			if code != cmdGet && code != cmdSet {
+				if (r.get(i)/1_000)%10 == 0 {
+					param2 = r.get(param2)
+				}
+
+				if code != cmdJumpIfFalse && code != cmdJumpIfTrue {
+					if (r.get(i)/10_000)%10 == 0 {
+						param3 = r.get(param3)
+					}
+				}
+			}
+		}
+
+		switch code {
+		case cmdAdd:
+			r.set(param3, r.get(param1)+r.get(param2))
+			i += 4
+		case cmdMultiply:
+			r.set(param3, r.get(param1)*r.get(param2))
+			i += 4
+		case cmdSet:
+			ip, err := r.rw.ReadValue()
+			if err != nil {
+				return fmt.Errorf("read failure %w", err)
+			}
+			r.set(param1, ip)
+			i += 2
+		case cmdGet:
+			err := r.rw.WriteValue(r.get(param1))
+			if err != nil {
+				return fmt.Errorf("error reading input %w", err)
+			}
+			i += 2
+		case cmdJumpIfTrue:
+			if r.get(param1) != 0 {
+				i = r.get(param2)
+				continue
+			}
+			i += 3
+		case cmdJumpIfFalse:
+			if r.get(param1) == 0 {
+				i = r.get(param2)
+				continue
+			}
+			i += 3
+		case cmdLessThan:
+			if r.get(param1) < r.get(param2) {
+				r.set(param3, 1)
+			} else {
+				r.set(param3, 0)
+			}
+			i += 4
+		case cmdEquals:
+			if r.get(param1) == r.get(param2) {
+				r.set(param3, 1)
+			} else {
+				r.set(param3, 0)
+			}
+			i += 4
+		case cmdEnd:
+			r.rw.Exit()
+			return nil
+		default:
+			return fmt.Errorf("invalid opcode %d at %d", code, i)
+		}
+	}
+
+	return nil
+}
 
 func Run(program []int, input int) ([]int, int, error) {
 	vh := &ValueHolder{value: input}
@@ -30,100 +144,7 @@ func Run(program []int, input int) ([]int, int, error) {
 }
 
 func RunWithAmp(program []int, rw ioReadWriter) ([]int, error) {
-	defer rw.Fail()
-	programLength := len(program)
-
-	for i := 0; i < programLength; {
-		code := mode(program[i] % 100)
-
-		// Default to parameter mode
-		param1 := i + 1
-		param2 := i + 2
-		param3 := i + 3
-
-		if code != modeEnd {
-			if (program[i]/100)%10 == 0 {
-				param1 = program[param1]
-			}
-
-			if param1 > programLength {
-				return program, fmt.Errorf("attempted to access index out of range at %d (%d)", i, param1)
-			}
-
-			if code != modeGet && code != modeSet {
-				if (program[i]/1_000)%10 == 0 {
-					param2 = program[param2]
-				}
-
-				if param2 > programLength {
-					return program, fmt.Errorf("attempted to access index out of range at %d (%d %d)", i, param1, param2)
-				}
-
-				if code != modeJumpIfFalse && code != modeJumpIfTrue {
-					if (program[i]/10_000)%10 == 0 {
-						param3 = program[param3]
-					}
-
-					if param3 > programLength {
-						return program, fmt.Errorf("attempted to access index out of range at %d (%d %d %d)", i, param1, param2, param3)
-					}
-				}
-			}
-		}
-
-		switch code {
-		case modeAdd:
-			program[param3] = program[param1] + program[param2]
-			i += 4
-		case modeMultiply:
-			program[param3] = program[param1] * program[param2]
-			i += 4
-		case modeSet:
-			ip, err := rw.ReadValue()
-			if err != nil {
-				return program, fmt.Errorf("read failure %w", err)
-			}
-			program[param1] = ip
-			i += 2
-		case modeGet:
-			err := rw.WriteValue(program[param1])
-			if err != nil {
-				return program, fmt.Errorf("error reading input %w", err)
-			}
-			i += 2
-		case modeJumpIfTrue:
-			if program[param1] != 0 {
-				i = program[param2]
-				continue
-			}
-			i += 3
-		case modeJumpIfFalse:
-			if program[param1] == 0 {
-				i = program[param2]
-				continue
-			}
-			i += 3
-		case modeLessThan:
-			if program[param1] < program[param2] {
-				program[param3] = 1
-			} else {
-				program[param3] = 0
-			}
-			i += 4
-		case modeEquals:
-			if program[param1] == program[param2] {
-				program[param3] = 1
-			} else {
-				program[param3] = 0
-			}
-			i += 4
-		case modeEnd:
-			rw.Exit()
-			return program, nil
-		default:
-			return program, fmt.Errorf("invalid opcode %d at %d", code, i)
-		}
-	}
-
-	return program, nil
+	r := runner{prog: program, rw: rw}
+	err := r.run()
+	return r.prog, err
 }
