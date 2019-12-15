@@ -1,4 +1,4 @@
-package main
+package intcode
 
 import (
 	"reflect"
@@ -94,30 +94,6 @@ func Test_point_setDir(t *testing.T) {
 				t.Errorf("Run() p.Y = %v, want %v", p.Y, tt.wantPoint.Y)
 			}
 
-		})
-	}
-}
-
-func Test_paint(t *testing.T) {
-	type args struct {
-		path []int64
-	}
-	tests := []struct {
-		name string
-		args args
-		want int
-	}{
-		{
-			name: "simples",
-			args: args{path: []int64{0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1}},
-			want: 6,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := paint(tt.args.path); got != tt.want {
-				t.Errorf("paint() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }
