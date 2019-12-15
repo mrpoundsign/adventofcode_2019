@@ -73,7 +73,7 @@ func (v Rover) PaintCount() int {
 }
 
 func (v Rover) Paints() map[point]int {
-	return v.Paints()
+	return v.paints
 }
 
 func (v Rover) Fail() {}
